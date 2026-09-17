@@ -7,8 +7,6 @@ Automatically renews PythonAnywhere free-tier web apps and scheduled tasks every
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Schedule](https://img.shields.io/badge/Runs-1st%20%26%2015th%20Monthly-brightgreen.svg)
 
-**[Main App Demo](https://tanishqmudaliar.pythonanywhere.com)** | **[Weather Monitoring System](https://github.com/tanishqmudaliar/Weather-Monitoring-System)**
-
 ---
 
 ## Table of Contents
@@ -25,7 +23,6 @@ Automatically renews PythonAnywhere free-tier web apps and scheduled tasks every
 - [Configuration](#configuration)
 - [Account Configuration Examples](#account-configuration-examples)
 - [Workflow Logs](#workflow-logs)
-- [Related Repositories](#related-repositories)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
@@ -35,8 +32,6 @@ Automatically renews PythonAnywhere free-tier web apps and scheduled tasks every
 ## Overview
 
 PythonAnywhere free tier apps expire after ~~3 months~~ **1 month** of inactivity _(updated Jan 2026)_. This bot automatically renews your web app by logging into PythonAnywhere and clicking the "Extend" button every 15 days via GitHub Actions.
-
-Combined with the [Weather-Monitoring-System](https://github.com/tanishqmudaliar/Weather-Monitoring-System) auto-deployment webhook, this creates a completely hands-off hosting solution that stays alive indefinitely on the free tier.
 
 ### The Problem
 
@@ -99,52 +94,32 @@ Day 30:  Bot auto-renews ✅
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    FULLY AUTOMATED PYTHONANYWHERE HOSTING                   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │                              GITHUB                                  │   │
-│  │                                                                      │   │
-│  │   ┌─────────────────────────────┐  ┌─────────────────────────────┐   │   │
-│  │   │  Weather-Monitoring-System  │  │  PythonAnywhere-Auto-Renew  │   │   │
-│  │   │                             │  │                             │   │   │
-│  │   │  • Main application code    │  │  • Renewal bot (this repo)  │   │   │
-│  │   │  • Deployment endpoint      │  │  • Runs 1st & 15th monthly  │   │   │
-│  │   │  • Auto-deploys on push     │  │  • Keeps app alive forever  │   │   │
-│  │   └──────────────┬──────────────┘  └──────────────┬──────────────┘   │   │
-│  │                  │ POST request                   │ GitHub           │   │
-│  │                  │ (/github-webhook)              │ Actions          │   │
-│  │                  ▼                                ▼                  │   │
-│  └──────────────────┼────────────────────────────────┼──────────────────┘   │
-│                     │                                │                      │
-│  ┌──────────────────▼────────────────────────────────▼──────────────────┐   │
-│  │                            PYTHONANYWHERE                            │   │
-│  │                                                                      │   │
-│  │      ┌─────────────────────────┐    ┌─────────────────────────┐      │   │
-│  │      │   Deployment Endpoint   │    │     Auto-Renewal        │      │   │
-│  │      │  • git pull             │    │  • Extends app expiry   │      │   │
-│  │      │  • pip install          │    │  • Prevents shutdown    │      │   │
-│  │      │  • Reload webapp        │    │  • Zero maintenance     │      │   │
-│  │      └─────────────────────────┘    └─────────────────────────┘      │   │
-│  │                                                                      │   │
-│  │              https://tanishqmudaliar.pythonanywhere.com              │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│               Push code → Instantly live → Stays alive forever              │
-└─────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    trigger["1. Trigger<br/>Scheduled or manual run"]
+    prepare["2. Prepare<br/>Checkout, install dependencies,<br/>load and validate credentials"]
+    renew["3. Renew accounts<br/>One isolated session per account;<br/>authenticate, extend web apps and tasks,<br/>verify new expiry dates"]
+    platform["4. PythonAnywhere<br/>Web app dashboard and<br/>scheduled-task API"]
+    record["5. Record outcome<br/>Aggregate SUCCESS, PARTIAL, or FAILED;<br/>write and commit workflow_runs.log"]
+
+    trigger --> prepare --> renew
+    renew <--> platform
+    renew --> record
 ```
 
 ### How It Works
 
 1. GitHub Actions runs the workflow on the 1st and 15th of each month.
-2. The script discovers complete `PA_*`, numbered, and JSON account
-   configurations.
-3. Each configured account gets its own authenticated session.
-4. The script renews web apps and scheduled tasks for that account.
-5. Results are written directly to `.github/logs/workflow_runs.log`.
-6. The workflow commits the detailed log and pushes it back to the repository.
+2. The credential resolver discovers complete `PA_*`, numbered, and JSON
+   account configurations, then reports incomplete or duplicate entries.
+3. The orchestrator creates an isolated authenticated session for each account.
+4. The web app and scheduled task adapters renew the resources exposed by
+   PythonAnywhere.
+5. Results are written to `.github/logs/workflow_runs.log` with an explicit
+   `SUCCESS`, `PARTIAL`, or `FAILED` status.
+6. The workflow commits the log so the repository retains an auditable run
+   history. A failed account does not prevent later configured accounts from
+   being attempted; the aggregate status records the failure.
 
 ---
 
@@ -426,21 +401,6 @@ Renewal details:
   - Login failed
 ========================================
 ```
-
----
-
-## Related Repositories
-
-| Repository                                                                                | Purpose                                       |
-| ----------------------------------------------------------------------------------------- | --------------------------------------------- |
-| [Weather-Monitoring-System](https://github.com/tanishqmudaliar/Weather-Monitoring-System) | Main weather app with auto-deployment webhook |
-| [PythonAnywhere-Auto-Renew](https://github.com/tanishqmudaliar/PythonAnywhere-Auto-Renew) | Keeps the app alive on free tier (this repo)  |
-
-Together, these repositories provide:
-
-- Instant automated deployment on every push
-- 24/7 uptime without manual intervention
-- Zero-maintenance free-tier hosting
 
 ---
 
